@@ -17,9 +17,9 @@ unsigned char pattern[3][8] = {
 
 /*Game Status*/
 unsigned char LED_status[9] = {
-   2,2,2,
-   2,2,2,
-   2,2,2
+   0,0,0,
+   0,0,0,
+   0,0,0
 };
 
 unsigned char disp1[38][8]={
@@ -164,7 +164,7 @@ void LED_set(int LED_position, int LED_pattern){
         Write_Max7219(i,disp1[LED_pattern][i-1],LED_position);
      }
      
-     LED_status_set(LED_position, LED_pattern);
+
 }
 void LED_set_9_letter(char* array1){
    int i = 0 ;
@@ -210,10 +210,13 @@ void LED_status_set(int LED_position, int LED_pattern) {
 }
 int get_press_led (){
   Letter_set(0,5);
+  
   unsigned char mask = 0x0f; 
   int input;
   input = (PIND&0x0f)^mask;
-  while (input==0);
+  while (input==0){
+    input = (PIND&0x0f)^mask;
+  }
   return input-1;
 }
 void pressure_led_set(int LED_pattern){
@@ -221,13 +224,21 @@ void pressure_led_set(int LED_pattern){
 
   unsigned char input ;
     input= get_press_led ();
-    LED_set(input,LED_pattern);
+    while (LED_status[input]!=EMPTY){
+          input= get_press_led ();
+    }
+    int i ;
+   // LED_set(input,LED_pattern);
+     for(i=1; i<9; i++){
+        Write_Max7219(i,pattern[LED_pattern+1][i-1],input);
+     }
+    LED_status_set(input, LED_pattern+1);
 }
 //we can change this to wait for anything being pressed
 void wait_start_button(){
-  unsigned char a =PINB;
-  while(a==PINB){
-    a =PINB;
+  int a  =  analogRead(0);
+  while(a>=900){
+     a  =  analogRead(0);
   }
 }
 int choose_mode(){
@@ -241,11 +252,24 @@ int choose_mode(){
 void single_player(){
   LED_set_9_letter("singleply");
   delay(3000);
-  return;
+   LED_set_9_letter("start1111");
+   delay(3000);
+   LED_empty();
+   
+  return;  
 }
 void double_player(){
   LED_set_9_letter("doubleply");
   delay(3000);
+   LED_set_9_letter("start1111");
+   delay(3000);
+   LED_empty();
+   int a = 0;
+    while (a<9){
+  pressure_led_set(a%2);
+  delay(1000);
+  a++;
+    }
   return;
 }
 void not_correct_mode(){
