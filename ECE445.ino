@@ -92,10 +92,21 @@ void Write_Max7219(unsigned char address,unsigned char dat,unsigned char LED_pos
 
 void Write_Max7219_letter(unsigned char address,unsigned char dat,unsigned char letter_position)
 {
-       PORTB = (PORTB&0xfc);//|(letter_position&0x03);
+       //PORTB = PORTB&0xfb;
+//       Serial.println("the value before clear enable,enter letter position is");
+//       Serial.println(PORTB);
+       PORTB = (PORTB&0xf9)|((letter_position&0x03)<<1);
+       PORTB = PORTB &0xfe;
+//       delay(10);
+//       Serial.println("the value after clear enable,enter letter position is");
+//       Serial.println(PORTB);
        Write_Max7219_byte(address);           //address，code of LED
        Write_Max7219_byte(dat);               //data，figure on LED
-       PORTB=(PORTB|0x03);
+//       Serial.println("the value before restore clear enable is");
+//       Serial.println(PORTB);
+       PORTB=(PORTB|0x01);
+//       Serial.println("the value after restore clear enable is");
+//       Serial.println(PORTB);
 }
 
 /* Init LED chip */
@@ -135,10 +146,24 @@ void LED_empty(){
        } 
 }
 
+void Letter_empty(){
+       int S_time=0;
+       int j;
+       int i;
+       
+       for(j=0;j<4;j++)
+       {
+         for(i=1;i<9;i++){
+            Write_Max7219_letter(i,pattern[EMPTY][i-1],S_time);
+         }
+         S_time++;     
+       } 
+}
 /* General Initialization */
 void setup()
 {
-      //Initial Serial      
+      //Initial Serial 
+      //Serial.begin(9600);       
       //declear CS DIN
       //pinMode(Max7219_pinCLK,OUTPUT);
       //pinMode(Max7219_pinDIN,OUTPUT);
@@ -147,10 +172,11 @@ void setup()
       DDRD = B11110000;
 
       //declear PIN 8 to 13
-      DDRB = B11111011;
+      DDRB = B11111111;
+      //PORTB = PORTB|0x04;
       //init 3*3 LED module
       Init_MAX7219();
-
+      
       //empty 3*3 LED module
       LED_empty();
 }
@@ -182,6 +208,27 @@ void LED_set_9_letter(char* array1){
     else 
     letter = 14;
     LED_set(i,letter);
+   }
+}
+void Letter_set_4_letter(char*array1){
+     int i = 0 ;
+   int letter; 
+   for(i=0;i<4;i++){
+//    Serial.println("NNNN");
+//    Serial.println(i);
+//    Serial.println("NNNN");
+    if(array1[i]>=97){
+      letter = array1[i]-97 + 10;
+    }
+    else if (array1[i]>=48){
+      letter = array1[i] - 48 ;
+    }
+    //error reading
+    else if(array1[i]==32)
+    letter =  36;
+    else 
+    letter = 14;
+    Letter_set(i,letter);
    }
 }
 
@@ -303,7 +350,9 @@ void game_start(){
 void loop()
 { 
   wait_start_button();
-  Letter_set(0,3);
+  //Serial.println("START CHECKING");
+  Letter_set_4_letter("kick");
+  //while(1);
   game_start();
 
 
