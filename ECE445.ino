@@ -7,6 +7,8 @@
 int Max7219_pinCLK = 11;
 int Max7219_pinCS = 9;
 int Max7219_pinDIN = 12; 
+int X_score = 0;
+int O_score = 0;
 
 /*Patterns Dictionary*/
 unsigned char pattern[3][8] = {
@@ -189,9 +191,17 @@ void LED_set(int LED_position, int LED_pattern){
      for(i=1; i<9; i++){
         Write_Max7219(i,disp1[LED_pattern][i-1],LED_position);
      }
-     
-
 }
+
+/* Set single LED */
+void LED_set_pattern(int LED_position, int LED_pattern){
+     int i;
+     
+     for(i=1; i<9; i++){
+        Write_Max7219(i,pattern[LED_pattern][i-1],LED_position);
+     }
+}
+
 void LED_set_9_letter(char* array1){
    int i = 0 ;
    int letter; 
@@ -210,7 +220,7 @@ void LED_set_9_letter(char* array1){
     LED_set(i,letter);
    }
 }
-void Letter_set_4_letter(char*array1){
+void Letter_set_4_letter(char* array1){
      int i = 0 ;
    int letter; 
    for(i=0;i<4;i++){
@@ -255,8 +265,8 @@ void LED_refresh(){
 void LED_status_set(int LED_position, int LED_pattern) {
      LED_status[LED_position] = LED_pattern;
 }
+
 int get_press_led (){
-  Letter_set(0,5);
   
   unsigned char mask = 0x0f; 
   int input;
@@ -264,7 +274,7 @@ int get_press_led (){
   while (input==0){
     input = (PIND&0x0f)^mask;
   }
-  return input-1;
+  return input - 1;
 }
 void pressure_led_set(int LED_pattern){
 
@@ -288,41 +298,210 @@ void wait_start_button(){
      a  =  analogRead(0);
   }
 }
+
+void GAME_win(int pattern){
+   if(pattern == 1){
+      Letter_set_4_letter("XWIN");
+      X_score = X_score + 1;
+   } else {
+      Letter_set_4_letter("OWIN"); 
+      O_score = O_score + 1;   
+   }
+   delay(5000);
+   for(int i = 0; i < 9; i++){
+      LED_status[i] = EMPTY;
+   }
+}
+
+boolean GAME_check(){
+  boolean flag = true;
+  int pre = -1;
+  for(int i = 0; i < 3; i++){
+     flag = true;
+     pre = -1;
+     //check rows
+     for(int j = 0; j < 3; j++){
+        if(LED_status[3*i + j] == EMPTY){
+           flag = false;
+           break; 
+        }
+        
+        if(pre == -1){
+          pre = LED_status[3*i + j];
+        } else {
+          if(pre != LED_status[3*i + j]){
+            flag = false;
+            break; 
+          }
+        }
+     }
+     if(flag){
+        GAME_win(pre);
+        return true;
+     }
+  }
+
+  //check column
+  for(int i = 0; i < 3; i++){
+     flag = true;
+     pre = -1;
+     for(int j = 0; j < 3; j++){
+        if(LED_status[3*j + i] == EMPTY){
+           flag = false;
+           break; 
+        }
+        
+        if(pre == -1){
+           pre = LED_status[3*j + i];
+        } else {
+           if(pre != LED_status[3*j + i]){
+             flag = false;
+             break; 
+           }
+        }
+     }
+     if(flag){
+        GAME_win(pre);
+        return true;
+     }
+  }
+
+  //check cross
+  if(LED_status[0] == LED_status[4] && LED_status[4] == LED_status[8] && LED_status[8] == LED_status[0]){
+    if(LED_status[0] != 0){
+      GAME_win(LED_status[0]);
+      return true;
+    }
+  }
+
+  if(LED_status[2] == LED_status[4] && LED_status[4] == LED_status[6] && LED_status[2] == LED_status[6]){
+    if(LED_status[2] != 0){
+      GAME_win(LED_status[2]);
+      return true;
+    }
+  }
+  return false;
+}
+
 int choose_mode(){
-  int pressed_button=get_press_led ();
-  if(pressed_button==1)
-  return 0;
-  else if (pressed_button==7)
-  return 1;
-  else return 2;
+   int pressed_button=get_press_led ();
+   if(pressed_button==1)
+   return 0;
+   else if (pressed_button==7)
+   return 1;
+   else return 2;
 }
+
 void single_player(){
-  LED_set_9_letter("singleply");
-  delay(3000);
-   LED_set_9_letter("start1111");
+   LED_set_9_letter("singleply");
    delay(3000);
-   LED_empty();
-   
-  return;  
-}
-void double_player(){
-  LED_set_9_letter("doubleply");
-  delay(3000);
    LED_set_9_letter("start1111");
    delay(3000);
    LED_empty();
    int a = 0;
-    while (a<9){
-  pressure_led_set(a%2);
-  delay(1000);
-  a++;
-    }
-  return;
+   while (a<9){
+      if(a % 2 == 0){
+        // human turn
+        pressure_led_set(0);
+      } else {
+        // AI turn
+        int AI_position = -1;
+        // PLAN A check row & col
+        for(int i = 0; i < 3; i++){
+            if(LED_status[3*i] == LED_status[3*i+1] && LED_status[i] == CIRCLE && LED_status[3*i+2] == EMPTY){
+              AI_position = 3*i+2;
+            }
+            if(LED_status[3*i+1] == LED_status[3*i+2] && LED_status[i+1] == CIRCLE && LED_status[3*i] == EMPTY){
+              AI_position = 3*i;
+            }
+            if(LED_status[i] == LED_status[i+3] && LED_status[i] == CIRCLE && LED_status[i+6] == EMPTY){
+              AI_position = i+6;
+            }
+            if(LED_status[i+3] == LED_status[i+6] && LED_status[i+3] == CIRCLE && LED_status[i] == EMPTY){
+              AI_position = i;
+            }
+        }
+
+        // PLAN C check cross
+        if(LED_status[0] == LED_status[4] && LED_status[0] == CIRCLE && LED_status[8] == EMPTY){
+          AI_position = 8;  
+        }
+        if(LED_status[4] == LED_status[6] && LED_status[4] == CIRCLE && LED_status[2] == EMPTY){
+          AI_position = 2;  
+        }
+        if(LED_status[4] == LED_status[2] && LED_status[4] == CIRCLE && LED_status[6] == EMPTY){
+          AI_position = 6;  
+        }
+        if(LED_status[4] == LED_status[8] && LED_status[4] == CIRCLE && LED_status[0] == EMPTY){
+          AI_position = 0;  
+        }
+        // PLAN D check special
+        if(LED_status[1] == LED_status[5] && LED_status[1] == CIRCLE && LED_status[2] == EMPTY){
+          AI_position = 2;  
+        }
+        if(LED_status[1] == LED_status[3] && LED_status[1] == CIRCLE && LED_status[0] == EMPTY){
+          AI_position = 0;  
+        }
+        if(LED_status[3] == LED_status[7] && LED_status[3] == CIRCLE && LED_status[6] == EMPTY){
+          AI_position = 6;  
+        }
+        if(LED_status[5] == LED_status[7] && LED_status[5] == CIRCLE && LED_status[8] == EMPTY){
+          AI_position = 8;  
+        }
+
+         if(AI_position == -1){
+            for(int i = 0; i < 9; i++){
+              if(LED_status[i] == EMPTY){
+                AI_position = i;
+              }
+            }
+         }
+         
+         LED_set_pattern(AI_position, CROSS);
+         LED_status_set(AI_position, CROSS);
+         if(GAME_check() == true){
+            LED_set_9_letter("gameover");
+            delay(1000);
+            break;
+        }
+      }
+      
+      if(GAME_check() == true){
+          LED_set_9_letter("gameover");
+          delay(3000);
+          break;
+      }
+      delay(1000);
+      a++;
+   }
+   return;  
 }
+
+void double_player(){
+   LED_set_9_letter("doubleply");
+   delay(3000);
+   LED_set_9_letter("start1111");
+   delay(3000);
+   LED_empty();
+   int a = 0;
+   while (a<9){
+      pressure_led_set(a%2);
+      if(GAME_check() == true){
+        LED_set_9_letter("gameover");
+        delay(1000);
+        break;
+      }
+      delay(3000);
+      a++;
+   }
+   return;
+}
+
 void not_correct_mode(){
   LED_set_9_letter("chooseagn");
   delay(3000);
 }
+
 void game_start(){
   LED_set_9_letter("gamestart");
   delay(3000);
@@ -334,16 +513,17 @@ void game_start(){
   LED_set_9_letter(" 1     2 ");
   int mode = choose_mode();
   if(mode==0){
-  single_player();  
+    single_player();  
   }
   else if (mode==1){
-  double_player();  
+    double_player();  
   }
   else{
-  not_correct_mode();
-  goto choosemod ;
+    not_correct_mode();
+    goto choosemod ;
   }
 }
+
 /*
  * Game Main Body
  */
@@ -351,16 +531,14 @@ void loop()
 { 
   wait_start_button();
   //Serial.println("START CHECKING");
-  Letter_set_4_letter("kick");
-  //while(1);
-  game_start();
-
-
-
-//    LED_refresh();
-//    LED_Game_Print();
-//    LED_set(3,0);
-//    LED_refresh();
-//    LED_Game_Print();
-    while(1){};
+  while(1){
+    Letter_set(0, 0);
+    Letter_set(1, O_score);
+    Letter_set(2, 33);
+    Letter_set(3, X_score);
+    game_start();
+    for(int i = 0; i < 9; i++){
+      LED_status[i] = EMPTY;
+    }
+  }
 }
