@@ -301,10 +301,10 @@ void wait_start_button(){
 
 void GAME_win(int pattern){
    if(pattern == 1){
-      Letter_set_4_letter("XWIN");
+      Letter_set_4_letter("xwin");
       X_score = X_score + 1;
    } else {
-      Letter_set_4_letter("OWIN"); 
+      Letter_set_4_letter("qwin"); 
       O_score = O_score + 1;   
    }
    delay(5000);
